@@ -1,138 +1,299 @@
-// Place viewer page here not how to get to user page 
-// 
-// MAKE SOCKETS WORK. so we can have a viewer actually look at the data
-// 
-// 
-// 
-// 
-// 
-// 
-
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useParams } from "next/navigation";
+//  TO DO:
+// 
+// Make the menus dynamic to change with viewers language
+// 
+//
+//
+//
 
-export default function ViewerSessionPage() {
-  const { id: sessionId } = useParams(); // get session ID from URL
-  const [connected, setConnected] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [inputLang, setInputLang] = useState("en-US");
-  const [outputLang, setOutputLang] = useState("es");
+import { useState, useRef, useEffect } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { Filter } from "bad-words";
+
+const FFilter = new Filter();
+
+const BASE_LANGS = [
+  { code: "en" },
+  { code: "es" },
+  { code: "de" },
+  { code: "fr" },
+  { code: "it" },
+  { code: "ht" },
+  { code: "zh" },
+  { code: "ja" },
+];
+
+const LANG_LABELS = {
+  en: { en: "English", es: "Spanish", de: "German", fr: "French", it: "Italian", ht: "Haitian Creole", zh: "Chinese", ja: "Japanese" },
+  es: { en: "Inglés", es: "Español", de: "Alemán", fr: "Francés", it: "Italiano", ht: "Criollo haitiano", zh: "Chino", ja: "Japonés" },
+  de: { en: "Englisch", es: "Spanisch", de: "Deutsch", fr: "Französisch", it: "Italienisch", ht: "Haitianisches Kreolisch", zh: "Chinesisch", ja: "Japanisch" },
+  fr: { en: "Anglais", es: "Espagnol", de: "Allemand", fr: "Français", it: "Italien", ht: "Créole haïtien", zh: "Chinois", ja: "Japonais" },
+  it: { en: "Inglese", es: "Spagnolo", de: "Tedesco", fr: "Francese", it: "Italiano", ht: "Creolo haitiano", zh: "Cinese", ja: "Giapponese" },
+  ht: { en: "Angle", es: "Panyòl", de: "Alman", fr: "Franse", it: "Italyen", ht: "Kreyòl Ayisyen", zh: "Chinwa", ja: "Japonè" },
+  zh: { en: "英语", es: "西班牙语", de: "德语", fr: "法语", it: "意大利语", ht: "海地克里奥尔语", zh: "中文", ja: "日语" },
+  ja: { en: "英語", es: "スペイン語", de: "ドイツ語", fr: "フランス語", it: "イタリア語", ht: "ハイチ・クレオール語", zh: "中国語", ja: "日本語" },
+};
+
+const UI_STRINGS = {
+  en: { 
+    spokenLanguage: "Spoken Language:",
+    translateTo: "Translate To:"
+  },
+  es: { 
+    spokenLanguage: "Idioma Hablado:",
+    translateTo: "Traducir a:"
+  },
+  de: { 
+    spokenLanguage: "Gesprochene Sprache:",
+    translateTo: "Übersetzen in:"
+  },
+  fr: { 
+    spokenLanguage: "Langue Parlée:",
+    translateTo: "Traduire vers:"
+  },
+  it: { 
+    spokenLanguage: "Lingua Parlata:",
+    translateTo: "Tradurre in:"
+  },
+  ht: { 
+    spokenLanguage: "Lang Lang Ou Pale:",
+    translateTo: "Tradui nan:"
+  },
+  zh: { 
+    spokenLanguage: "口语语言：",
+    translateTo: "翻译成："
+  },
+  ja: { 
+    spokenLanguage: "話される言語：",
+    translateTo: "翻訳先："
+  },
+};
+
+export default function SessionPage() {
+  const { id } = useParams();
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role");
+  const sessionKey = searchParams.get("key");
+
+  const [isHost, setIsHost] = useState(roleParam ? roleParam === "host" : null);
+  const [sessionId, setsessionId] = useState(id || "");
+  const [input, setInput] = useState("");
+  const [output, setOutput] = useState("");
+  const [lastInput, setlastInput] = useState("");
+  const [lastOutput, setlastOutput] = useState("");
+  const [listening, setListening] = useState();
+
+  // 🗣️ Language selectors
+  const [spokenLang, setSpokenLang] = useState("en-US");   // host microphone input
+  const [targetLang, setTargetLang] = useState("es");      // host translation output
+  const [viewerLang, setViewerLang] = useState("es");      // viewer display
+
+  const recognitionRef = useRef(null);
   const wsRef = useRef(null);
+  const fullEnglishRef = useRef("");
+  const fullSpanishRef = useRef("");
+  const targetLangRef = useRef(targetLang);
+  const lastInputRef = useRef(lastInput);  // Initialize with an empty string
+  const lastOutputRef = useRef(lastOutput);  // Initialize with an empty string
 
-  // Connect to WebSocket server when the viewer loads
-  useEffect(() => {
-    console.log("Viewer joining session:", sessionId);
+useEffect(() => {
+  targetLangRef.current = targetLang;
+}, [targetLang]);
 
-  useEffect(() => {
- const ws = new WebSocket(`ws://localhost:8000/ws/${sessionId}`);
+useEffect(() => {
+  spokenLangRef.current = spokenLang;
+}, [spokenLang]);
 
-  ws.onopen = () => console.log("✅ Connected to server");
-  ws.onmessage = (event) => console.log("📨 Received:", JSON.parse(event.data));
-  ws.onclose = () => console.log("❌ Disconnected");
+useEffect(() => {
+  lastInputRef.current = lastInput;
+}, [lastInput]);
 
-  return () => ws.close();
-  }, []);
+useEffect(() => {
+  lastOutputRef.current = lastOutput;
+}, [lastOutput]);
 
-    // (1) Join the session through the API
-    async function joinSession() {
-      try {
-        const res = await fetch("/api/session/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, inputLang, outputLang }),
-        });
+useEffect(() => 
+  {
 
-        const data = await res.json();
-        console.log("Viewer joined successfully:", data);
-      } catch (err) {
-        console.error("Failed to join session:", err);
-      }
+  if (!sessionId) 
+    {
+    console.log("ERROR: No session ID found");
+    return;
     }
 
-    joinSession();
+   if (wsRef.current) 
+    {
+    wsRef.current.close(1000, "Switching session");
+    wsRef.current = null;
+    }
 
-    // (2) Simulate a WebSocket connection
-    // In production, you'd use `new WebSocket("wss://...")` or Socket.IO
-    const ws = {
-      send: (msg) => console.log("Mock send:", msg),
-      close: () => console.log("Mock close"),
+  const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${sessionId}`);
+  wsRef.current = ws;
+
+    ws.onopen = () => {
+
+      if (isHost)
+
+        ws.send(JSON.stringify({ source: "viewer", payload: { input: spokenLang, output: targetLang } }));
+        
+      };
+
+ws.onmessage = (e) => {
+      try {
+
+        const msg = JSON.parse(e.data);
+        //console.log("📨 WS:", msg);
+
+        switch (msg.source) {
+           
+            case "client":
+          
+            if (msg.payload.sessionID == sessionId){ // make sure session IDs match the client websocket broadcast
+
+            cleantext = cleanText(msg.payload.english)  
+            //console.log("input set to:" + msg.payload.english_punctuated); 
+            setInput(lastInputRef + cleantext); // might not be visible because of the speed of the translate / punctuate, look into this. might also be a source of failure with the string concatenate
+            break; 
+              }
+
+            case "punctuate": 
+            cleantext = cleanText(msg.payload.english_punctuated)
+              if (msg.payload.sessionID == sessionId)
+              {
+              // console.log("input set to:" + msg.payload.english_punctuated); 
+              // setInput(msg.payload.english_punctuated);
+              // break; // how is this getting punctuation if this is commented out?!?
+              }
+
+            case "translate": 
+             if (msg.payload.sessionID == sessionId)
+            {
+              //console.log(targetLangRef.current + " == " + msg.payload.lang)
+              if (targetLangRef.current ==  msg.payload.lang && msg.payload.sessionID == sessionId)
+                {
+                  //console.log("output set to:" + msg.payload.translated)
+                  setOutput(msg.payload.translated); // look out of dupe info?
+                  fullSpanishRef.current = msg.payload.translated;
+                  break;
+                }
+              }
+
+            case "viewer_lang_change":
+              {
+              console.log("✅ Language update sent : " +  msg.payload.newLang); // TODO add this to the backend so the viewer can change langauges 
+              break;
+              }
+
+            case "viewer_lang_change_confirm":  // add into backend
+              {
+
+                  return
+                
+              }
+
+            default: console.warn("⚠️ Unknown message source:", msg.source);
+        
+        }
+      } catch (err) { console.error("❌ WS error:", err); }
     };
-    wsRef.current = ws;
-    setConnected(true);
 
-    // (3) Cleanup on page unload
-    return () => {
-      wsRef.current?.close();
-      setConnected(false);
-    };
-  }, [sessionId, inputLang, outputLang]);
+ return () => {
+    if (ws.readyState === WebSocket.OPEN) ws.close(1000, "Cleanup");
+    wsRef.current = null;
+  };
+}, [sessionId]);
 
-  // (4) Simulate receiving messages from the host
+  // ✅ Setup filters
   useEffect(() => {
-    const fakeMessage = setInterval(() => {
-      setMessages((prev) => [
-        ...prev,
-        { text: "Translated message from host 🎧", time: new Date().toLocaleTimeString() },
-      ]);
-    }, 5000);
-
-    return () => clearInterval(fakeMessage);
+    FFilter.addWords(
+      "puta", "mierda", "cabron", "coño", "pendejo", "chingar",
+      "culero", "gilipollas", "joder", "hostia", "maldito","fuck", 
+      "shit", "bitch", "asshole", "nigger", "cunt", "faggot", "cock",
+      "pussy", "dick", "slut", "whore", "nigga",
+    );
   }, []);
 
-  return (
-    <main className="p-6 flex flex-col items-center space-y-4">
-      <h1 className="text-2xl font-bold">Viewer Session</h1>
-      <p className="text-gray-600">Session ID: <span className="font-mono">{sessionId}</span></p>
-      <p className={connected ? "text-green-600" : "text-red-600"}>
-        {connected ? "Connected to Host ✅" : "Disconnected ❌"}
-      </p>
+  // add more filters for the other languages 
+  
+function cleanText(text, lang = spokenLang) {
+  if (!text) return "";
+  if (lang){ return FFilter.clean(text);}
+}
 
-      <div className="w-full max-w-xl border rounded p-3 h-64 overflow-y-auto bg-gray-50">
-        {messages.length === 0 ? (
-          <p className="text-gray-400 italic">Waiting for host to start...</p>
-        ) : (
-          messages.map((msg, i) => (
-            <p key={i} className="mb-1">
-              <span className="text-sm text-gray-500">{msg.time}</span> — {msg.text}
-            </p>
-          ))
-        )}
-      </div>
+function sendToServer(type, payload) {
+  if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+  wsRef.current.send(JSON.stringify({ source: type, payload }));
+}
 
-      <div className="flex gap-4 mt-4">
-        <div>
-          <label className="block text-sm font-semibold">Input Language:</label>
-          <select
-            value={inputLang}
-            onChange={(e) => setInputLang(e.target.value)}
-            className="border rounded p-1"
-          >
-            <option value="en-US">English</option>
-            <option value="fr-FR">French</option>
-            <option value="es-ES">Spanish</option>
-            <option value="ht-HT">Haitian Creole</option>
-          </select>
-        </div>
+    return (
+    <main className="p-8 max-w-xl mx-auto space-y-6">
+      {/* Host Interface */}
+      {/* make sure the is host is false, if not transfer to host page */}
+      {isHost === false && ( 
+        <>
+          <h2 className="text-xl font-semibold text-center">
+            SmugAlpaca Translating
+          </h2>
 
-        <div>
-          <label className="block text-sm font-semibold">Output Language:</label>
-          <select
-            value={outputLang}
-            onChange={(e) => setOutputLang(e.target.value)}
-            className="border rounded p-1"
-          >
-            <option value="es">Spanish</option>
-            <option value="en">English</option>
-            <option value="fr">French</option>
-            <option value="ht">Haitian Creole</option>
-          </select>
-        </div>
-      </div>
+          {/* 🌐 Language Selectors */}
+          <div className="flex justify-center gap-4 my-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">
+                {UI_STRINGS[spokenLang]?.spokenLanguage || UI_STRINGS.en.spokenLanguage}
+              </label>
+              <select value={spokenLang} onChange={(e) => setSpokenLang(e.target.value)}>
+                {languageOptions.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1">
+                {UI_STRINGS[targetLang]?.translateTo || UI_STRINGS.en.translateTo}  {/* translate to : is the main option. different languages  */}
+              </label>
+              <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
+                {languageOptions.map((l) => (
+                  <option 
+                    key={l.code} value={`${l.code}-${l.code.toUpperCase()}`}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Input / Output Text Boxes */}
+          <div>
+            <label className="block font-semibold mb-1">
+              Hosts original text:
+            </label>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+               className="w-full border p-3 rounded bg-gray-100 text-gray-900 min-h-[600px] max-h-[1000px] overflow-y-auto"
+            />
+          </div>
+
+          <div>
+            <label className="block font-semibold mb-1">
+              Translation ({targetLang.toUpperCase()}):
+            </label>
+            <div
+              className="w-full border p-3 rounded bg-gray-100 text-gray-900 min-h-[600px] max-h-[1000px] overflow-y-auto"
+            >
+              {output || "Translation will appear here..."}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* MAKE A USE CASE FOR THE ISHOST = FALSE */ }
+
     </main>
   );
 }
-
-
-// speech → WebSocket → DB (raw text) → Punctuation → Translation → DB (updated, multilingual, punctuated)

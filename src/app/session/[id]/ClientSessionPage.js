@@ -31,16 +31,73 @@ import { Filter } from "bad-words";
 const englishFilter = new Filter();
 const spanishFilter = new Filter();
 
-const LANG_OPTIONS = [
-  { code: "en", label: "English" },
-  { code: "es", label: "Spanish" },
-  { code: "de", label: "German" },
-  { code: "fr", label: "French" },
-  { code: "it", label: "Italian" },
-  { code: "ht", label: "Haitian Creole"},
-  { code: "zh", label: "Chinese" },
-  { code: "ja", label: "Japanese" },
+// language maps because im too lazy to call a translator from here
+
+const BASE_LANGS = [
+  { code: "en" },
+  { code: "es" },
+  { code: "de" },
+  { code: "fr" },
+  { code: "it" },
+  { code: "ht" },
+  { code: "zh" },
+  { code: "ja" },
 ];
+
+const LANG_LABELS = {
+  en: { en: "English", es: "Spanish", de: "German", fr: "French", it: "Italian", ht: "Haitian Creole", zh: "Chinese", ja: "Japanese" },
+  es: { en: "Inglés", es: "Español", de: "Alemán", fr: "Francés", it: "Italiano", ht: "Criollo haitiano", zh: "Chino", ja: "Japonés" },
+  de: { en: "Englisch", es: "Spanisch", de: "Deutsch", fr: "Französisch", it: "Italienisch", ht: "Haitianisches Kreolisch", zh: "Chinesisch", ja: "Japanisch" },
+  fr: { en: "Anglais", es: "Espagnol", de: "Allemand", fr: "Français", it: "Italien", ht: "Créole haïtien", zh: "Chinois", ja: "Japonais" },
+  it: { en: "Inglese", es: "Spagnolo", de: "Tedesco", fr: "Francese", it: "Italiano", ht: "Creolo haitiano", zh: "Cinese", ja: "Giapponese" },
+  ht: { en: "Angle", es: "Panyòl", de: "Alman", fr: "Franse", it: "Italyen", ht: "Kreyòl Ayisyen", zh: "Chinwa", ja: "Japonè" },
+  zh: { en: "英语", es: "西班牙语", de: "德语", fr: "法语", it: "意大利语", ht: "海地克里奥尔语", zh: "中文", ja: "日语" },
+  ja: { en: "英語", es: "スペイン語", de: "ドイツ語", fr: "フランス語", it: "イタリア語", ht: "ハイチ・クレオール語", zh: "中国語", ja: "日本語" },
+};
+
+const UI_STRINGS = {
+  en: { 
+    spokenLanguage: "Spoken Language:",
+    translateTo: "Translate To:"
+  },
+  es: { 
+    spokenLanguage: "Idioma Hablado:",
+    translateTo: "Traducir a:"
+  },
+  de: { 
+    spokenLanguage: "Gesprochene Sprache:",
+    translateTo: "Übersetzen in:"
+  },
+  fr: { 
+    spokenLanguage: "Langue Parlée:",
+    translateTo: "Traduire vers:"
+  },
+  it: { 
+    spokenLanguage: "Lingua Parlata:",
+    translateTo: "Tradurre in:"
+  },
+  ht: { 
+    spokenLanguage: "Lang Lang Ou Pale:",
+    translateTo: "Tradui nan:"
+  },
+  zh: { 
+    spokenLanguage: "口语语言：",
+    translateTo: "翻译成："
+  },
+  ja: { 
+    spokenLanguage: "話される言語：",
+    translateTo: "翻訳先："
+  },
+};
+
+const languageOptions = useMemo(() => {
+  const spoken = spokenLangRef.current || "en";
+
+  return BASE_LANGS.map((l) => ({
+    code: l.code,
+    label: LANG_LABELS[spoken]?.[l.code] ?? LANG_LABELS.en[l.code],
+  }));
+}, [spokenLang]);
 
 export default function SessionPage() {
   const { id } = useParams();
@@ -67,66 +124,90 @@ export default function SessionPage() {
   const fullEnglishRef = useRef("");
   const fullSpanishRef = useRef("");
   const targetLangRef = useRef(targetLang);
+  const spokenLangRef = useRef(spokenLang);
   const lastInputRef = useRef(lastInput);  // Initialize with an empty string
   const lastOutputRef = useRef(lastOutput);  // Initialize with an empty string
 
 useEffect(() => {
   targetLangRef.current = targetLang;
 }, [targetLang]);
+
+useEffect(() => {
+  spokenLangRef.current = spokenLang;
+}, [spokenLang]);
+
 useEffect(() => {
   lastInputRef.current = lastInput;
 }, [lastInput]);
+
 useEffect(() => {
   lastOutputRef.current = lastOutput;
 }, [lastOutput]);
 
-useEffect(() => {
-  if (!sessionId) {
+// client
+
+  if (!sessionId) 
+    {
     console.log("ERROR: No session ID found");
     return;
-  }
-   if (wsRef.current) {
-    //console.log("🔁 Closing old WS for session:", wsRef.current.sessionId);
+    }
+
+   if (wsRef.current) 
+    {
     wsRef.current.close(1000, "Switching session");
     wsRef.current = null;
-  }
+    }
 
   const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${sessionId}`);
   wsRef.current = ws;
 
     ws.onopen = () => {
-      //console.log("✅ WS connected");
-      // send current language prefs when connecting
+
       if (isHost)
+
         ws.send(JSON.stringify({ source: "host_lang_update", payload: { input: spokenLang, output: targetLang } }));
+      
       else
+
         ws.send(JSON.stringify({ source: "host_lang_update", payload: { output: viewerLang } }));
-    };
+    
+      };
 
 ws.onmessage = (e) => {
       try {
+
         const msg = JSON.parse(e.data);
         //console.log("📨 WS:", msg);
 
         switch (msg.source) {
-           case "client":
-          //console.log("input set to:" + msg.payload.english_punctuated); 
-          setInput(msg.payload.english_punctuated); break;
-          case "punctuate": 
-          // console.log("input set to:" + msg.payload.english_punctuated); // setInput(msg.payload.english_punctuated); break;
-          case "translate": 
-          //console.log(targetLangRef.current + " == " + msg.payload.lang)
-          if (targetLangRef.current ==  msg.payload.lang){
-          //console.log("output set to:" + msg.payload.translated)
-          setOutput(msg.payload.translated); // look out of dupe info?
-          break;
-          }
+           
+            case "client":
 
-          case "host_lang_update":
-          case "translation_target_change":
-            console.log("✅ Language update received:", msg.payload);
+            //console.log("input set to:" + msg.payload.english_punctuated); 
+            setInput(msg.payload.english_punctuated); break; // TODO does this do anything? answer: no its not even the right modifier 
+          
+            case "punctuate": 
+            // console.log("input set to:" + msg.payload.english_punctuated); // setInput(msg.payload.english_punctuated); break;
+          
+            case "translate": 
+            //console.log(targetLangRef.current + " == " + msg.payload.lang)
+            if (targetLangRef.current ==  msg.payload.lang && msg.payload.sessionID == sessionId)
+              {
+
+            //console.log("output set to:" + msg.payload.translated)
+            setOutput(msg.payload.translated); // look out of dupe info?
+            fullSpanishRef.current = msg.payload.translated;
             break;
-          default: console.warn("⚠️ Unknown message source:", msg.source);
+            }
+          
+            case "host_lang_update":
+          
+            case "translation_target_change":
+              console.log("✅ Language update received:", msg.payload);
+              break;
+          
+            default: console.warn("⚠️ Unknown message source:", msg.source);
+        
         }
       } catch (err) { console.error("❌ WS error:", err); }
     };
@@ -241,7 +322,7 @@ function stopListening() {
   // clearTimeout(window.punctuateTimer); // 🧹 clean up WHY IS THIS VALID SYNTAX?!?!?
   //console.log("00000\n")
   setlastInput(input);  // Store the current input into lastInputRef
-  fullSpanishRef = output.current;
+  fullSpanishRef.current = output;
   console.log("input: " + fullEnglishRef.current)
   console.log("output: " + fullSpanishRef.current)
   setInput("");
@@ -250,47 +331,20 @@ function stopListening() {
 }
   return (
     <main className="p-8 max-w-xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold text-center mb-4">
-        Session Code: {sessionId}
-      </h1>
-
-      {/* Step 1: Role Selection */}
-      {isHost === null && (
-        <div className="text-center">
-          <p className="mb-4 text-gray-700">
-            Are you the host or a viewer for this translation session?
-          </p>
-          <div className="flex justify-center gap-3">
-            <button
-              onClick={() => setIsHost(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-            >
-              🎤 I am the Host
-            </button>
-            <button
-              onClick={() => setIsHost(false)}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-            >
-              👀 I am a Viewer
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 2: Host Interface */}
+      {/* Host Interface */}
       {isHost === true && (
         <>
           <h2 className="text-xl font-semibold text-center">
-            Host: Real-Time Translator
+            SmugAlpaca Translating
           </h2>
 
           {/* 🌐 Language Selectors */}
           <div className="flex justify-center gap-4 my-4">
             <div>
               <label className="block text-sm font-semibold mb-1">
-                Spoken Language:
+                {UI_STRINGS[spokenLang]?.spokenLanguage || UI_STRINGS.en.spokenLanguage}
               </label>
-              <select
+              {/* <select
                 value={spokenLang}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -307,14 +361,22 @@ function stopListening() {
                     {l.label}
                   </option>
                 ))}
+              </select> */}
+
+              <select value={spokenLang} onChange={(e) => setSpokenLang(e.target.value)}>
+                {languageOptions.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
               </select>
             </div>
 
             <div>
               <label className="block text-sm font-semibold mb-1">
-                Translate To:
+                {UI_STRINGS[targetLang]?.translateTo || UI_STRINGS.en.translateTo}  {/* translate to : is the main option. different languages  */}
               </label>
-              <select
+              {/* <select
                 value={targetLang}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -325,6 +387,15 @@ function stopListening() {
               >
                 {LANG_OPTIONS.map((l) => (
                   <option key={l.code} value={l.code}>
+                    {l.label}
+                  </option>
+                ))}
+              </select> */}
+
+              <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
+                {languageOptions.map((l) => (
+                  <option 
+                    key={l.code} value={`${l.code}-${l.code.toUpperCase()}`}>
                     {l.label}
                   </option>
                 ))}
@@ -370,6 +441,7 @@ function stopListening() {
     <button
       onClick={() => {
         stopListening();  // Stop listening
+        fullSpanishRef.current = output;
       }}
       className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
     >
@@ -380,46 +452,9 @@ function stopListening() {
         </>
       )}
 
-      {/* Step 3: Viewer Interface */}
-      {isHost === false && (
-        <>
-          <h2 className="text-xl font-semibold text-center">
-            Viewer: Live Translation Feed
-          </h2>
+      {/* MAKE A USE CASE FOR THE ISHOST = FALSE */ }
 
-          {/* 🌐 Viewer Language Selector */}
-          <div className="flex justify-center gap-4 mb-4">
-            <div>
-              <label className="block text-sm font-semibold mb-1">
-                Display Language:
-              </label>
-              <select
-                value={viewerLang}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setViewerLang(val);
-                  sendToServer("host_lang_update", { input: "", output: val });
-                }}
-                className="border rounded p-2"
-              >
-                {LANG_OPTIONS.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Translation Output Box */}
-          <div
-            className="w-full border p-3 rounded bg-gray-100 text-gray-900 min-h-[150px] max-h-[300px] overflow-y-auto"
-          >
-            {output || "Waiting for translation..."}
-          </div>
-        </>
-      )}
     </main>
   );
-}
+
   // speech → WebSocket → DB (raw text) → Punctuation → Translation → DB (updated, multilingual, punctuated)
