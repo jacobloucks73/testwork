@@ -71,7 +71,7 @@ const UI_STRINGS = {
   },
 };
 
-export default function SessionPage() {
+export default function ViewerSessionPage() {
   const { id } = useParams();
   const searchParams = useSearchParams();
   const roleParam = searchParams.get("role");
@@ -102,9 +102,9 @@ useEffect(() => {
   targetLangRef.current = targetLang;
 }, [targetLang]);
 
-useEffect(() => {
-  spokenLangRef.current = spokenLang;
-}, [spokenLang]);
+// useEffect(() => {
+//   spokenLangRef.current = spokenLang;
+// }, [spokenLang]);
 
 useEffect(() => {
   lastInputRef.current = lastInput;
@@ -152,7 +152,7 @@ ws.onmessage = (e) => {
           
             if (msg.payload.sessionID == sessionId){ // make sure session IDs match the client websocket broadcast
 
-            cleantext = cleanText(msg.payload.english)  
+            cleantext = cleanText(msg.payload.english) 
             //console.log("input set to:" + msg.payload.english_punctuated); 
             setInput(lastInputRef + cleantext); // might not be visible because of the speed of the translate / punctuate, look into this. might also be a source of failure with the string concatenate
             break; 
@@ -222,9 +222,20 @@ function cleanText(text, lang = spokenLang) {
   if (lang){ return FFilter.clean(text);}
 }
 
-function sendToServer(type, payload) {
+function sendToServer(type, payload,selector) {
+  if (selector == 1){
+
   if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+  setTargetLang(e.target.value)
   wsRef.current.send(JSON.stringify({ source: type, payload }));
+  }
+  else
+  {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+  wsRef.current.send(JSON.stringify({ source: type, payload }));
+  }
+}
+
 }
 
     return (
@@ -237,8 +248,9 @@ function sendToServer(type, payload) {
             SmugAlpaca Translating
           </h2>
 
-          {/* 🌐 Language Selectors */}
+
           <div className="flex justify-center gap-4 my-4">
+{/* 🌐 Language Selectors  uneeded due to lack of spoken bullshit
             <div>
               <label className="block text-sm font-semibold mb-1">
                 {UI_STRINGS[spokenLang]?.spokenLanguage || UI_STRINGS.en.spokenLanguage}
@@ -251,12 +263,15 @@ function sendToServer(type, payload) {
                 ))}
               </select>
             </div>
-
+*/}
             <div>
               <label className="block text-sm font-semibold mb-1">
                 {UI_STRINGS[targetLang]?.translateTo || UI_STRINGS.en.translateTo}  {/* translate to : is the main option. different languages  */}
               </label>
-              <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
+              <select value={targetLang} onChange={(e) =>
+                sendToServer("viewer_lang_change", e.target.value, 1)}>
+                {/*setTargetLang(e.target.value)*/}
+                
                 {languageOptions.map((l) => (
                   <option 
                     key={l.code} value={`${l.code}-${l.code.toUpperCase()}`}>
@@ -296,4 +311,3 @@ function sendToServer(type, payload) {
 
     </main>
   );
-}

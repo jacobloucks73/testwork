@@ -36,3 +36,4 @@ export default function CoClientSessionPage() {
   const wsRef = useRef(null);
   const fullEnglishRef = useRef("");
   const fullSpanishRef = useRef("");
+}

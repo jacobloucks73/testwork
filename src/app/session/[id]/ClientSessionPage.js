@@ -171,7 +171,7 @@ useEffect(() => {
 
   const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${sessionId}`);
   wsRef.current = ws;
-
+  
     ws.onopen = () => {
 
       if (isHost)
@@ -340,6 +340,7 @@ function stopListening() {
   setOutput("");
   setListening(false);
 }
+
   return (
     <main className="p-8 max-w-xl mx-auto space-y-6">
       {/* Host Interface */}
@@ -468,5 +469,5 @@ function stopListening() {
 
     </main>
   );
-
+}
   // speech → WebSocket → DB (raw text) → Punctuation → Translation → DB (updated, multilingual, punctuated)
