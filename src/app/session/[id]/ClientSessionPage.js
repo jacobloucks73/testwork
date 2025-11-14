@@ -105,6 +105,8 @@ export default function SessionPage() {
   const roleParam = searchParams.get("role");
   const sessionKey = searchParams.get("key");
 
+  const normalizeLang = (code) => code.split("-")[0];  // FIXED
+
   const [isHost, setIsHost] = useState(roleParam ? roleParam === "host" : null);
   const [sessionId, setsessionId] = useState(id || "");
   const [input, setInput] = useState("");
@@ -114,7 +116,7 @@ export default function SessionPage() {
   const [listening, setListening] = useState();
 
   // 🗣️ Language selectors
-  const [spokenLang, setSpokenLang] = useState("en-US");   // host microphone input
+  const [spokenLang, setSpokenLang] = useState("en");   // host microphone input
   const [targetLang, setTargetLang] = useState("es");      // host translation output
   const [viewerLang, setViewerLang] = useState("es");      // viewer display
 
@@ -144,8 +146,17 @@ useEffect(() => {
   lastOutputRef.current = lastOutput;
 }, [lastOutput]);
 
-// client
+// ✅ Generate dropdown items dynamically
+  const languageOptions = useMemo(() => {
+    const spoken = normalizeLang(spokenLangRef.current || "en");
+    return BASE_LANGS.map((l) => ({
+      code: l.code,
+      label: LANG_LABELS[spoken]?.[l.code] ?? LANG_LABELS.en[l.code],
+    }));
+  }, [spokenLang]);   // ✅ re-run if UI language changes
 
+// client
+useEffect(() => {
   if (!sessionId) 
     {
     console.log("ERROR: No session ID found");
@@ -342,8 +353,9 @@ function stopListening() {
           <div className="flex justify-center gap-4 my-4">
             <div>
               <label className="block text-sm font-semibold mb-1">
-                {UI_STRINGS[spokenLang]?.spokenLanguage || UI_STRINGS.en.spokenLanguage}
+                 {UI_STRINGS[spokenLang]?.spokenLanguage || UI_STRINGS.en.spokenLanguage}
               </label>
+
               {/* <select
                 value={spokenLang}
                 onChange={(e) => {
