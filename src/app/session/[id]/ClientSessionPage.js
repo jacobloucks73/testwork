@@ -6,27 +6,17 @@
 // add way to go to Display page(QR code, Session Key, Viewer count, ETC...)
 // add web sockets so viewers can actually get to the host and vice versa
 // pass language to translators so they can translate any language given
-// get from database every 4 secs. 
- 
 
 
-// const response = await fetch("/api/translate", {
-//   method: "POST",
-//   headers: { "Content-Type": "application/json" },
-//   body: JSON.stringify({
-//     text: englishTranscript, // 👈 your transcript string
-//     lan: "es",               // 👈 target language (e.g., "es" for Spanish)
-//   }),
-// });
-
-// const data = await response.json();
-// console.log("Translated text:", data.translation);
-// 
-// above is call to translate for route.js in translate
+// LEVEL ::: 9 :::
+ // pretty big bug is you can literally take over the host session and cause havoc if you put role=host on a session, 
+ // need to password protect hosts and limit to only one host per session with active session bool
+ // if active session and user tries to connect, disallow. 
 
 import { useState, useRef, useEffect } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Filter } from "bad-words";
+import { useMemo } from "react";
 
 const englishFilter = new Filter();
 const spanishFilter = new Filter();
@@ -90,14 +80,14 @@ const UI_STRINGS = {
   },
 };
 
-const languageOptions = useMemo(() => {
-  const spoken = spokenLangRef.current || "en";
+// const languageOptions = useMemo(() => {
+//   const spoken = spokenLangRef.current || "en";
 
-  return BASE_LANGS.map((l) => ({
-    code: l.code,
-    label: LANG_LABELS[spoken]?.[l.code] ?? LANG_LABELS.en[l.code],
-  }));
-}, [spokenLang]);
+//   return BASE_LANGS.map((l) => ({
+//     code: l.code,
+//     label: LANG_LABELS[spoken]?.[l.code] ?? LANG_LABELS.en[l.code],
+//   }));
+// }, [spokenLang]);
 
 export default function SessionPage() {
   const { id } = useParams();
@@ -304,6 +294,7 @@ function startListening() {
 
       // ✅ Send finalized chunk to backend
       if (newlyCommittedChunk && wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log("yeet:" + {newlyCommittedChunk});
         sendToServer("client", { english: newlyCommittedChunk });
       }
       // might be useful for debugging, gives you the chunks on the input log
@@ -376,7 +367,13 @@ function stopListening() {
                 ))}
               </select> */}
 
-              <select value={spokenLang} onChange={(e) => setSpokenLang(e.target.value)}>
+              <select value={spokenLang} onChange={(e) =>{ 
+                 const val = e.target.value;
+                  setSpokenLang(val);
+                  sendToServer("host_lang_update", { input: val, output: targetLang });
+                }}
+                className="border rounded p-2"
+              >
                 {languageOptions.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.label}
@@ -387,25 +384,15 @@ function stopListening() {
 
             <div>
               <label className="block text-sm font-semibold mb-1">
-                {UI_STRINGS[targetLang]?.translateTo || UI_STRINGS.en.translateTo}  {/* translate to : is the main option. different languages  */}
+                {UI_STRINGS[targetLang]?.translateTo || UI_STRINGS.es.translateTo}  {/* translate to : is the main option. different languages  */}
               </label>
-              {/* <select
-                value={targetLang}
-                onChange={(e) => {
-                  const val = e.target.value;
-              
-                  sendToServer("translation_target_change", { language: val, FLAG: true });
+              <select value={targetLang} onChange={(e) =>{ 
+                 const val = e.target.value;
+                  setTargetLang(val);
+                  sendToServer("host_lang_update", {input: spokenLang, output: val});
                 }}
                 className="border rounded p-2"
               >
-                {LANG_OPTIONS.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select> */}
-
-              <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)}>
                 {languageOptions.map((l) => (
                   <option 
                     key={l.code} value={`${l.code}-${l.code.toUpperCase()}`}>

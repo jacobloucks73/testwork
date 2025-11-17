@@ -38,3 +38,4 @@ export default function DisplayPage() {
   const wsRef = useRef(null);
   const fullEnglishRef = useRef("");
   const fullSpanishRef = useRef("");
+}

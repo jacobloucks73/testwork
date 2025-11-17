@@ -4,8 +4,9 @@ import dynamic from "next/dynamic";
 import { useMemo } from "react";
 
 // Dynamically import both pages so they render only on client
-const HostPage = dynamic(() => import("./ClientSessionPage"), { ssr: false });
-const ViewerPage = dynamic(() => import("./ViewerSessionPage"), { ssr: false });
+const ClientPage   = dynamic(() => import("./ClientSessionPage"), { ssr: false });
+const CoClientPage = dynamic(() => import("./CoClientSessionPage"), { ssr: false });
+const ViewerPage   = dynamic(() => import("./ViewerSessionPage"), { ssr: false });
 
 export default function SessionPage() {
   const searchParams = useSearchParams();
@@ -13,8 +14,9 @@ export default function SessionPage() {
 
   // pick which component to render
   const RenderedPage = useMemo(() => {
-    if (role === "host") return HostPage;
-    if (role === "viewer") return ViewerPage;
+    if (role === "host")     return ClientPage;
+    if (role === "viewer")   return ViewerPage;
+    if (role === "coclient") return CoClientPage;
     return () => <div>Invalid or missing role parameter.</div>;
   }, [role]);
 

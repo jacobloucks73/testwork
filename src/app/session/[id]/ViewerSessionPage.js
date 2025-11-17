@@ -8,7 +8,7 @@
 //
 //
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Filter } from "bad-words";
 
@@ -85,6 +85,8 @@ export default function ViewerSessionPage() {
   const [lastOutput, setlastOutput] = useState("");
   const [listening, setListening] = useState();
 
+  const normalizeLang = (code) => code.split("-")[0];  // FIXED
+
   // 🗣️ Language selectors
   const [spokenLang, setSpokenLang] = useState("en-US");   // host microphone input
   const [targetLang, setTargetLang] = useState("es");      // host translation output
@@ -122,7 +124,8 @@ useEffect(() =>
     console.log("ERROR: No session ID found");
     return;
     }
-
+    sessionId == sessionId + "1"
+    console.log(sessionId)
    if (wsRef.current) 
     {
     wsRef.current.close(1000, "Switching session");
@@ -134,9 +137,7 @@ useEffect(() =>
 
     ws.onopen = () => {
 
-      if (isHost)
-
-        ws.send(JSON.stringify({ source: "viewer", payload: { input: spokenLang, output: targetLang } }));
+        ws.send(JSON.stringify({ source: "viewer", payload: { output: targetLang } }));
         
       };
 
@@ -150,30 +151,30 @@ ws.onmessage = (e) => {
            
             case "client":
           
-            if (msg.payload.sessionID == sessionId){ // make sure session IDs match the client websocket broadcast
+            //if (msg.payload.sessionID == sessionId){ // make sure session IDs match the client websocket broadcast
 
-            cleantext = cleanText(msg.payload.english) 
-            //console.log("input set to:" + msg.payload.english_punctuated); 
-            setInput(lastInputRef + cleantext); // might not be visible because of the speed of the translate / punctuate, look into this. might also be a source of failure with the string concatenate
+            //cleantext = cleanText(msg.payload.english) 
+            console.log("input set to:" + msg.payload.english_punctuated); 
+            //setInput(lastInputRef + cleantext); // might not be visible because of the speed of the translate / punctuate, look into this. might also be a source of failure with the string concatenate
             break; 
-              }
+              
 
             case "punctuate": 
-            cleantext = cleanText(msg.payload.english_punctuated)
+             //cleantext = cleanText(msg.payload.english_punctuated)
               if (msg.payload.sessionID == sessionId)
               {
               // console.log("input set to:" + msg.payload.english_punctuated); 
-              // setInput(msg.payload.english_punctuated);
+               //setInput(msg.payload.english_punctuated);
               // break; // how is this getting punctuation if this is commented out?!?
               }
 
             case "translate": 
              if (msg.payload.sessionID == sessionId)
             {
-              //console.log(targetLangRef.current + " == " + msg.payload.lang)
+              console.log(targetLangRef.current + " == " + msg.payload.lang)
               if (targetLangRef.current ==  msg.payload.lang && msg.payload.sessionID == sessionId)
                 {
-                  //console.log("output set to:" + msg.payload.translated)
+                  console.log("output set to:" + msg.payload.translated)
                   setOutput(msg.payload.translated); // look out of dupe info?
                   fullSpanishRef.current = msg.payload.translated;
                   break;
@@ -182,7 +183,7 @@ ws.onmessage = (e) => {
 
             case "viewer_lang_change":
               {
-              console.log("✅ Language update sent : " +  msg.payload.newLang); // TODO add this to the backend so the viewer can change langauges 
+              console.log(" Language update sent : " +  msg.payload.newLang); // TODO add this to the backend so the viewer can change langauges 
               break;
               }
 
@@ -193,10 +194,10 @@ ws.onmessage = (e) => {
                 
               }
 
-            default: console.warn("⚠️ Unknown message source:", msg.source);
+            default: console.warn("Unknown message source:", msg.source);
         
         }
-      } catch (err) { console.error("❌ WS error:", err); }
+      } catch (err) { console.error(" WS error:", err); }
     };
 
  return () => {
@@ -215,6 +216,14 @@ ws.onmessage = (e) => {
     );
   }, []);
 
+
+    const languageOptions = useMemo(() => {
+      const target = normalizeLang(targetLangRef.current || "en");
+      return BASE_LANGS.map((l) => ({
+        code: l.code,
+        label: LANG_LABELS[target]?.[l.code] ?? LANG_LABELS.en[l.code],
+      }));
+    }, [targetLang]);   // ✅ re-run if UI language changes
   // add more filters for the other languages 
   
 function cleanText(text, lang = spokenLang) {
@@ -222,7 +231,7 @@ function cleanText(text, lang = spokenLang) {
   if (lang){ return FFilter.clean(text);}
 }
 
-function sendToServer(type, payload,selector) {
+function sendToServer(type, payload, selector) {
   if (selector == 1){
 
   if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
@@ -236,13 +245,13 @@ function sendToServer(type, payload,selector) {
   }
 }
 
-}
+
 
     return (
     <main className="p-8 max-w-xl mx-auto space-y-6">
       {/* Host Interface */}
       {/* make sure the is host is false, if not transfer to host page */}
-      {isHost === false && ( 
+      { ( 
         <>
           <h2 className="text-xl font-semibold text-center">
             SmugAlpaca Translating
@@ -268,10 +277,13 @@ function sendToServer(type, payload,selector) {
               <label className="block text-sm font-semibold mb-1">
                 {UI_STRINGS[targetLang]?.translateTo || UI_STRINGS.en.translateTo}  {/* translate to : is the main option. different languages  */}
               </label>
-              <select value={targetLang} onChange={(e) =>
-                sendToServer("viewer_lang_change", e.target.value, 1)}>
-                {/*setTargetLang(e.target.value)*/}
-                
+              <select value={targetLang} onChange={(e) =>{ 
+                 const val = e.target.value;
+                  setTargetLang(val);
+                  sendToServer("host_lang_update", {input: "", output: val}); {/* TODO : see if this works with backend  */}
+                }}
+                className="border rounded p-2"
+              >
                 {languageOptions.map((l) => (
                   <option 
                     key={l.code} value={`${l.code}-${l.code.toUpperCase()}`}>
@@ -285,18 +297,18 @@ function sendToServer(type, payload,selector) {
           {/* Input / Output Text Boxes */}
           <div>
             <label className="block font-semibold mb-1">
-              Hosts original text:
+              Hosts original text: {/* TODO ::: LEVEL 2 : CHANGE TO TRANSLATED LANG */ }
             </label>
             <textarea
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => setOutput(e.target.value)}
                className="w-full border p-3 rounded bg-gray-100 text-gray-900 min-h-[600px] max-h-[1000px] overflow-y-auto"
             />
           </div>
 
           <div>
             <label className="block font-semibold mb-1">
-              Translation ({targetLang.toUpperCase()}):
+              Translation of Hosts Speech({targetLang.toUpperCase()}): {/* TODO ::: LEVEL 2 : CHANGE TO TRANSLATED LANG */ }
             </label>
             <div
               className="w-full border p-3 rounded bg-gray-100 text-gray-900 min-h-[600px] max-h-[1000px] overflow-y-auto"
@@ -307,7 +319,9 @@ function sendToServer(type, payload,selector) {
         </>
       )}
 
-      {/* MAKE A USE CASE FOR THE ISHOST = FALSE */ }
+      {/* TODO ::: LEVEL 2 : MAKE A USE CASE FOR THE ISHOST = FALSE */ }
 
     </main>
   );
+
+}
