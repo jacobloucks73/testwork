@@ -132,7 +132,7 @@ useEffect(() =>
     wsRef.current = null;
     }
 
-  const ws = new WebSocket(`ws://127.0.0.1:8000/ws/${sessionId}`);
+  const ws = new WebSocket(`wss://smugalpaca.com/ws/${sessionId}`);
   wsRef.current = ws;
 
     ws.onopen = () => {
