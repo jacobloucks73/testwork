@@ -13,8 +13,104 @@
  // need to password protect hosts and limit to only one host per session with active session bool
  // if active session and user tries to connect, disallow. 
 
+// important tips for react, 
+
+// how to use react specific vars
+
+// // 1) piece of UI state (triggers re-render)
+// const [value, setValue] = useState(initialValue);
+
+// // 2) persistent, non-UI value (no re-render)
+// const valueRef = useRef(initialValue);
+
+// // 3) run code after render or when deps change
+// useEffect(() => {
+//   // effect logic here
+
+//   return () => {
+//     // cleanup logic here
+//   };
+// }, [dependency1, dependency2]);
+
+// // 4) cache expensive derived values (only recalculates when deps change)
+// const cachedValue = useMemo(
+//   () => computeSomething(value1, value2),
+//   [value1, value2]
+// );
+
+// // 5) cache a function so it's not recreated every render
+// //    prevents unnecessary child re-renders and stabilizes event handlers
+// const cachedCallback = useCallback(
+//   () => doSomething(value),
+//   [value]
+// );
+
+// // 6) complex state manager (alternative to multiple useStates)
+// const [state, dispatch] = useReducer(reducerFunction, initialState);
+
+// // 7) share state across multiple components without prop drilling
+// //    (global-ish state for session info, languages, user role, etc.)
+// const contextValue = useContext(SomeContext);
+
+// // 8) run effect BEFORE browser paint (avoid flicker, measure layout)
+// useLayoutEffect(() => {
+//   // layout-sensitive logic
+// }, [dependency]);
+
+// // 9) mark state updates as "low-priority" so UI stays responsive
+// //    (good for heavy updates like live translation or big data)
+// const [isPending, startTransition] = useTransition();
+
+// startTransition(() => {
+//   setValue(expensiveValue); // runs in background
+// });
+
+// // 10) give a "lagged" version of a value so UI stays smooth
+// //     (great for expensive filters or live searches)
+// const deferredValue = useDeferredValue(inputValue);
+
+// // 11) customize what a parent receives through a ref (rare)
+// useImperativeHandle(ref, () => ({
+//   // methods exposed to parent
+// }));
+
+// useState
+// State that survives renders and updates UI.
+
+// useRef
+// State that survives renders and does not update UI.
+
+// useEffect
+// Runs after render for side-effects (WebSockets, timers, API calls, subscriptions).
+
+// useMemo
+// Caches derived values to avoid recalculating expensive logic.
+
+// useCallback
+// Caches functions so they don’t change between renders (improves performance).
+
+// useReducer
+// State manager for complex state transitions (mini Redux).
+
+// useContext
+// Shared global-ish state without prop drilling.
+
+// useLayoutEffect
+// Like useEffect but runs before paint (prevent flicker, measure DOM).
+
+// useTransition
+// Makes expensive state updates non-blocking.
+
+// useDeferredValue
+// Creates a "delayed" version of a value for smoother UI.
+
+// useImperativeHandle
+// Expose controlled methods to parent components through refs.
+
+
+
 import { useState, useRef, useEffect } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+// import { useParams, useSearchParams } from "next/navigation";
 import { Filter } from "bad-words";
 import { useMemo } from "react";
 
@@ -97,15 +193,15 @@ export default function SessionPage({ sessionId, spokenLangProp, outputLangProp 
 
   const normalizeLang = (code) => code.split("-")[0]; 
 
-  const [sessionId, setsessionId]   = useState(sessionId);
+  // const [sessionId, setsessionId]   = useState(sessionId); // not needed if id doesnt change 
   const [input, setInput]           = useState("");
   const [output, setOutput]         = useState("");
   const [lastInput, setlastInput]   = useState("");
   const [lastOutput, setlastOutput] = useState("");
   const [listening, setListening]   = useState();
 
-const [spokenLang, setSpokenLang] = useState(spokenLangProp || "en");
-const [targetLang, setTargetLang] = useState(outputLangProp || "es");
+  const [spokenLang, setSpokenLang] = useState(spokenLangProp || "en"); // good use of state var
+  const [targetLang, setTargetLang] = useState(outputLangProp || "es"); // good use of state var
 
   const recognitionRef = useRef(null);
   const wsRef = useRef(null);
@@ -133,7 +229,7 @@ useEffect(() => {
 }, [lastOutput]);
 
 // ✅ Generate dropdown items dynamically
-  const languageOptions = useMemo(() => {
+  const languageOptions = useMemo(() => { // most likely the cause of the delayed menu titles and 
     const spoken = normalizeLang(spokenLangRef.current || "en");
     return BASE_LANGS.map((l) => ({
       code: l.code,
