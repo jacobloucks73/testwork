@@ -1,0 +1,18 @@
+CRITICAL (must fix or nothing works)
+
+1. app/page.js must call correct page to get to the correct session page
+
+2. app/session/[ID]/page.js must correctly hand the SessionID to the correct sessionpage
+
+MODERATE (annoying but not fatal)
+
+1. add private keys to session
+
+2. Show “invalid session” or “invalid role” errors if bullshit role is detected 
+
+3. Session pages must load data from backend(for passwords and non-url data like initial languages)
+INFORMATIONAL (nice-to-have)
+1. make the translated headers on the session pages work correctly 
+2. Add loading screens(throbbers)
+3. Add simple logs or error messages
+4. make the UI not a steaming pile of dogshit

@@ -89,27 +89,23 @@ const UI_STRINGS = {
 //   }));
 // }, [spokenLang]);
 
-export default function SessionPage() {
-  const { id } = useParams();
-  const searchParams = useSearchParams();
-  const roleParam = searchParams.get("role");
-  const sessionKey = searchParams.get("key");
+export default function SessionPage({ sessionId, spokenLangProp, outputLangProp }) {
+  // const { id } = useParams();
+  // const searchParams = useSearchParams();
+  // const roleParam = searchParams.get("role");
+  // const sessionKey = searchParams.get("key");
 
-  const normalizeLang = (code) => code.split("-")[0];  // FIXED
+  const normalizeLang = (code) => code.split("-")[0]; 
 
-  const [isHost, setIsHost] = useState(roleParam ? roleParam === "host" : null);
-  const [sessionId, setsessionId] = useState(id || "");
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
-  const [lastInput, setlastInput] = useState("");
+  const [sessionId, setsessionId]   = useState(sessionId);
+  const [input, setInput]           = useState("");
+  const [output, setOutput]         = useState("");
+  const [lastInput, setlastInput]   = useState("");
   const [lastOutput, setlastOutput] = useState("");
-  const [listening, setListening] = useState();
+  const [listening, setListening]   = useState();
 
-  // 🗣️ Language selectors
-  const [spokenLang, setSpokenLang] = useState("en");   // host microphone input
-  const [targetLang, setTargetLang] = useState("es");      // host translation output
-  const [viewerLang, setViewerLang] = useState("es");      // viewer display
-
+const [spokenLang, setSpokenLang] = useState(spokenLangProp || "en");
+const [targetLang, setTargetLang] = useState(outputLangProp || "es");
 
   const recognitionRef = useRef(null);
   const wsRef = useRef(null);
@@ -168,9 +164,9 @@ useEffect(() => {
 
         ws.send(JSON.stringify({ source: "host_lang_update", payload: { input: spokenLang, output: targetLang } }));
       
-      else
+      // else
 
-        ws.send(JSON.stringify({ source: "host_lang_update", payload: { output: viewerLang } }));
+      //   ws.send(JSON.stringify({ source: "host_lang_update", payload: { output: viewerLang } }));
     
       };
 
@@ -335,7 +331,6 @@ function stopListening() {
   return (
     <main className="p-8 max-w-xl mx-auto space-y-6">
       {/* Host Interface */}
-      {isHost === true && (
         <>
           <h2 className="text-xl font-semibold text-center">
             SmugAlpaca Translating
@@ -450,7 +445,7 @@ function stopListening() {
   )}
 </div>
         </>
-      )}
+      
 
       {/* MAKE A USE CASE FOR THE ISHOST = FALSE */ }
 
